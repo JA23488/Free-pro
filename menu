@@ -1,0 +1,76 @@
+--[[ LocalScript ]]
+-- วางไว้ใน StarterPlayerScripts หรือ StarterGui
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- ฟังก์ชันสร้างป้ายราคาให้ไอเท็ม
+local function createPriceTag(part, price)
+	if not part or not part:IsA("BasePart") then return end
+	if part:FindFirstChild("PriceTag") then return end -- กันสร้างซ้ำ
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "PriceTag"
+	billboard.Size = UDim2.new(0, 100, 0, 40)
+	billboard.StudsOffset = Vector3.new(0, 2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.MaxDistance = 100 -- มองเห็นได้ไกลสุด 100 studs
+	billboard.Adornee = part
+	billboard.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = "💰 " .. tostring(price)
+	label.TextColor3 = Color3.fromRGB(255, 215, 0) -- สีทอง
+	label.TextStrokeTransparency = 0
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = billboard
+end
+
+-- สแกนหาไอเท็มทั้งหมดใน workspace ที่มี Value ชื่อ "Price"
+local function scanForPrices()
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			local priceValue = obj:FindFirstChild("Price")
+			if priceValue and (priceValue:IsA("NumberValue") or priceValue:IsA("IntValue")) then
+				createPriceTag(obj, priceValue.Value)
+
+				-- อัปเดตราคาเมื่อมีการเปลี่ยนแปลง
+				priceValue.Changed:Connect(function(newPrice)
+					local tag = obj:FindFirstChild("PriceTag")
+					if tag then
+						local label = tag:FindFirstChildOfClass("TextLabel")
+						if label then
+							label.Text = "💰 " .. tostring(newPrice)
+						end
+					end
+				end)
+			end
+		end
+	end
+end
+
+-- สแกนเมื่อเริ่ม
+scanForPrices()
+
+-- สแกนซ้ำเมื่อมีของใหม่เพิ่มเข้ามา
+workspace.DescendantAdded:Connect(function(obj)
+	if obj:IsA("NumberValue") or obj:IsA("IntValue") then
+		if obj.Name == "Price" and obj.Parent and obj.Parent:IsA("BasePart") then
+			createPriceTag(obj.Parent, obj.Value)
+		end
+	end
+end)
+
+-- สแกนซ้ำเมื่อของถูกลบ/เพิ่ม (เป็น fallback ทุก 2 วินาที)
+task.spawn(function()
+	while true do
+		task.wait(2)
+		scanForPrices()
+	end
+end)
